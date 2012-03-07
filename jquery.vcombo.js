@@ -11,7 +11,17 @@
 	$.fn.vcombo = function(options,callback){
 		var opts = $.extend({},options,settings);
 		var self = $(this);
-		var gq = '';
+		var triggered = false;
+		var throttle = function(fn, delay) {
+		  var timer = null;
+		  return function () {
+		    var context = this, args = arguments;
+		    clearTimeout(timer);
+		    timer = setTimeout(function () {
+		      fn.apply(context, args);
+		    }, delay);
+		  };
+		}
 		var box = (function(){
 			var main = $("<ul id='combo' class='s_round'></ul>");
 			return {
@@ -27,34 +37,40 @@
 						main.html('');
 							callback(raw,main);
 					})
-					/*$.ajax({
-						url:opts.src + q,
-						method:'GET',
-						dataType:'JSON',
-						success:function(data){
-							main.find('.loading').remove();
-							for(var i in data){
-								var item = $("<li class='item'></li>");
-								item.html(data[i].name);
-								item.addClass(data[i].id);
-								main.append(item);
-							}
-
-						}
-					})*/
 				},
 				adjust:function(p){
 					main.css(p);
 				},
 				remove:function(){
 					main.remove();
+				},
+				next:function(){
+					var active = main.find('li.active').removeClass('active');
+					var next = active.next();
+					if (!next.length) {
+        				next = $(main.find('li')[0]);
+      				}
+					next.addClass('active');
+				},
+				prev:function(){
+					var active = main.find('li.active').removeClass('active');
+					var prev = active.prev();
+					if(!prev.length){
+						prev = main.find('li').last();
+					}
+					prev.addClass('active');
+				},
+				select:function(){
+					var active = main.find('li.active');
+					console.log(active);
+					self.val(active.html());
 				}
 			}
 		})();
-		self.bind('mouseenter',function(e){
+		self.bind('focus',function(){
 			console.log('entered');
 			self.css({border:'1px solid #2496cd'});
-			self.bind('input',function(){
+			self.bind('input',throttle(function(){
 				console.log('keypress triggered');
 				var q = $(this).val();
 				console.log(q);
@@ -64,17 +80,48 @@
 					var selfh = self.outerHeight();
 					box.build();
 					box.adjust({position:"absolute",top:(top+selfh),left:left});
-					var timer = setTimeout(function(){
-						box.fill(q);
-					},500);
+					box.fill(q);
+					triggered = true;
+					$('#combo li').live('mouseenter',function(){
+						var cli = $(this);
+						cli.siblings().removeClass('active');
+						cli.addClass('active');
+					})
+					$('#combo li').live('click',function(e){
+						e.preventDefault();
+						box.select();
+					})
 				}
-
-			})
+			},500))
 			self.bind('blur',function(){
 				box.remove();
-				self.css({border:'0px'});
+				self.css({border:'1px solid #ccc'});
 			})
+			self.bind('keypress',function(e){
+				if(!triggered)	return;
+				 e.stopPropagation();
+				 switch(e.keyCode){
 
+					case 38: // up arrow
+					e.preventDefault();
+					box.prev();
+					break
+
+					case 40: // down arrow
+					e.preventDefault();
+					box.next();
+					break
+
+					case 13://enter
+					e.preventDefault();
+					box.select();
+					box.remove();
+					break 
+
+					case 27://esc
+					box.remove();
+				 }
+			})
 		})
 	}
 })(jQuery)
